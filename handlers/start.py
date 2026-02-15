@@ -3,35 +3,30 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 
 from states.user import UserForm
-from database.db import get_user, create_user
-from keyboards.main_menu import main_menu_keyboard  # We'll define this later
+from database.db import create_user, get_user
 
 router = Router()
 
-
-# =========================
-# /start → CHECK USER + JOIN
-# =========================
 @router.message(CommandStart())
 async def start_handler(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
-
-    # Check if user already exists
     user = get_user(user_id)
+
     if user:
-        wallet = user['balance']  # assuming db returns a dict-like object
-        await message.answer(
-            f"👋 Welcome back!\n"
-            f"Your wallet balance: <b>{wallet}</b> coins\n\n"
-            "👇 Select an option below:",
-            reply_markup=main_menu_keyboard(user_id)
-        )
+        await message.answer(f"👋 Welcome back, <b>{user[1]}</b>!\nType /menu to continue.")
         return
 
-    # New user flow
-    await message.answer(
-        "✅ Welcome! Let's get you registered.\n"
-        "📝 Please enter your name:\n"
-        "👉 कृपया अपना नाम बताएं"
-    )
+    await message.answer("✅ Welcome! Please enter your name:")
     await state.set_state(UserForm.name)
+
+@router.message(UserForm.name)
+async def process_name(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    name = message.text.strip()
+    if len(name) < 2:
+        await message.answer("❌ Please enter a valid name")
+        return
+
+    create_user(user_id, name)
+    await message.answer(f"✅ Registration complete! 👤 Name: <b>{name}</b>\nType /menu to explore")
+    await state.clear()
